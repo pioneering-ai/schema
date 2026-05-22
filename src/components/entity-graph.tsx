@@ -12,7 +12,7 @@ interface GraphNode {
   id: string;
   name: string;
   type: Entity['type'];
-  properties: { id: string; name: string }[];
+  properties: { id: string; name: string; type: Property['type']; required: boolean; description?: string }[];
 }
 
 interface GraphEdge {
@@ -54,7 +54,13 @@ export function EntityGraph() {
       id: e.id,
       name: e.name,
       type: e.type,
-      properties: e.properties.map(p => ({ id: p.id, name: p.name })),
+      properties: e.properties.map(p => ({ 
+        id: p.id, 
+        name: p.name, 
+        type: p.type, 
+        required: p.required, 
+        description: p.description 
+      })),
     }));
 
     const graphEdges: GraphEdge[] = mockPropertyMappings.map(m => ({
@@ -159,12 +165,174 @@ export function EntityGraph() {
     const incomingEdges = getIncomingEdges(entity.id);
     const outgoingEdges = getOutgoingEdges(entity.id);
 
+    const getPropertyRelations = (propertyId: string) => {
+      const incoming = incomingEdges.filter(e => e.targetProperty === propertyId);
+      const outgoing = outgoingEdges.filter(e => e.sourceProperty === propertyId);
+      return { incoming, outgoing };
+    };
+
+    const getPropertyTypeLabel = (type: string) => {
+      const labels: Record<string, string> = {
+        string: '字符串',
+        number: '数字',
+        boolean: '布尔',
+        date: '日期',
+        array: '数组',
+        object: '对象',
+      };
+      return labels[type] || type;
+    };
+
+    if (isSelected) {
+      return (
+        <div
+          key={entity.id}
+          className="glass-card rounded-xl p-6 border border-white/20 relative overflow-hidden"
+        >
+          <div className={`absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b ${colors.gradient}`} />
+          
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center`}>
+                  <Layers className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">{entity.name}</h3>
+                  <span className={`text-sm px-3 py-1 rounded-full ${colors.bg} ${colors.text}`}>
+                    {getEntityTypeLabel(entity.type)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h4 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+              <Layers className="w-4 h-4 text-purple-400" />
+              属性列表 ({entity.properties.length})
+            </h4>
+            <div className="space-y-3">
+              {entity.properties.map((prop) => {
+                const relations = getPropertyRelations(prop.id);
+                const hasIncoming = relations.incoming.length > 0;
+                const hasOutgoing = relations.outgoing.length > 0;
+                
+                return (
+                  <div 
+                    key={prop.id} 
+                    className={`p-4 rounded-xl border transition-all ${
+                      hasIncoming && hasOutgoing 
+                        ? 'bg-gradient-to-r from-blue-500/10 to-green-500/10 border-blue-500/30' 
+                        : hasIncoming 
+                          ? 'bg-blue-500/10 border-blue-500/30' 
+                          : hasOutgoing 
+                            ? 'bg-green-500/10 border-green-500/30'
+                            : 'bg-white/5 border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <code className="text-lg font-mono text-white">{prop.name}</code>
+                          <span className={`text-xs px-2 py-0.5 rounded ${prop.required ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                            {prop.required ? '必填' : '可选'}
+                          </span>
+                          <span className="text-xs text-slate-400 bg-white/5 px-2 py-0.5 rounded">
+                            {getPropertyTypeLabel(prop.type)}
+                          </span>
+                          <div className="flex items-center gap-1 ml-auto">
+                            {hasIncoming && (
+                              <span className="flex items-center gap-1 text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded">
+                                <ArrowLeft className="w-3 h-3" />
+                                上游
+                              </span>
+                            )}
+                            {hasOutgoing && (
+                              <span className="flex items-center gap-1 text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded">
+                                下游
+                                <ArrowRight className="w-3 h-3" />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {prop.description && (
+                          <p className="text-sm text-slate-400 leading-relaxed">{prop.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {(hasIncoming || hasOutgoing) && (
+                      <div className="mt-3 pt-3 border-t border-white/10 space-y-2">
+                        {hasIncoming && (
+                          <div>
+                            <p className="text-xs text-blue-400 mb-1 flex items-center gap-1">
+                              <ArrowLeft className="w-3 h-3" />
+                              来自上游
+                            </p>
+                            <div className="space-y-1">
+                              {relations.incoming.map(edge => {
+                                const sourceEntity = nodes.find(n => n.id === edge.source);
+                                return (
+                                  <div key={edge.id} className="text-xs bg-blue-500/10 rounded px-2 py-1 border border-blue-500/20">
+                                    <span className="text-blue-300">{sourceEntity?.name}</span>
+                                    <span className="text-slate-500 mx-1">·</span>
+                                    <code className="text-blue-400">{getPropertyName(edge.source, edge.sourceProperty)}</code>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {hasOutgoing && (
+                          <div>
+                            <p className="text-xs text-green-400 mb-1 flex items-center gap-1">
+                              流向
+                              <ArrowRight className="w-3 h-3" />
+                            </p>
+                            <div className="space-y-1">
+                              {relations.outgoing.map(edge => {
+                                const targetEntity = nodes.find(n => n.id === edge.target);
+                                return (
+                                  <div key={edge.id} className="text-xs bg-green-500/10 rounded px-2 py-1 border border-green-500/20">
+                                    <span className="text-green-300">{targetEntity?.name}</span>
+                                    <span className="text-slate-500 mx-1">·</span>
+                                    <code className="text-green-400">{getPropertyName(edge.target, edge.targetProperty)}</code>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-white/10">
+            <div className="flex items-center gap-4 text-sm text-slate-400">
+              <span>{entity.properties.length} 个属性</span>
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                上游: {incomingEdges.length}
+              </span>
+              <span className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                下游: {outgoingEdges.length}
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div
         key={entity.id}
-        className={`glass-card rounded-xl p-5 border ${colors.border} relative overflow-hidden ${
-          isSelected ? 'ring-2 ring-white/30' : ''
-        } transition-all duration-300 hover:scale-[1.02]`}
+        className={`glass-card rounded-xl p-5 border ${colors.border} relative overflow-hidden transition-all duration-300 hover:scale-[1.02]`}
       >
         <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${colors.gradient}`} />
         

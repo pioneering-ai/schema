@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Edit, Trash2, ChevronRight, ChevronDown, Database, Layers, Search, X } from 'lucide-react';
+import { Plus, Edit, Trash2, ChevronRight, ChevronDown, Database, Layers, Search, X, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -32,8 +32,9 @@ interface PropertyFormData {
 
 export function EntityManagement() {
   const [entities, setEntities] = useState<Entity[]>(mockEntities);
-  const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set(['1', '2', '4', '5']));
+  const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set(['1', '2']));
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -128,6 +129,9 @@ export function EntityManagement() {
 
   const confirmDeleteEntity = () => {
     if (entityToDelete) {
+      if (selectedEntity?.id === entityToDelete || selectedEntity?.parentId === entityToDelete) {
+        setSelectedEntity(null);
+      }
       setEntities(entities.filter(e => e.id !== entityToDelete && e.parentId !== entityToDelete));
       setDeleteDialogOpen(false);
       setEntityToDelete(null);
@@ -155,11 +159,17 @@ export function EntityManagement() {
   const submitEditEntity = () => {
     if (!currentEntity || !formData.name.trim()) return;
     
-    setEntities(entities.map(e => 
+    const updatedEntities = entities.map(e => 
       e.id === currentEntity.id 
         ? { ...e, name: formData.name, type: formData.type, updatedAt: new Date() }
         : e
-    ));
+    );
+    setEntities(updatedEntities);
+    
+    if (selectedEntity?.id === currentEntity.id) {
+      setSelectedEntity(updatedEntities.find(e => e.id === currentEntity.id) || null);
+    }
+    
     setEditDialogOpen(false);
     setCurrentEntity(null);
   };
@@ -175,152 +185,99 @@ export function EntityManagement() {
       description: propertyFormData.description,
     };
     
-    setEntities(entities.map(e => 
+    const updatedEntities = entities.map(e => 
       e.id === currentEntity.id 
         ? { ...e, properties: [...e.properties, newProperty], updatedAt: new Date() }
         : e
-    ));
+    );
+    
+    setEntities(updatedEntities);
+    
+    if (selectedEntity?.id === currentEntity.id) {
+      setSelectedEntity(updatedEntities.find(e => e.id === currentEntity.id) || null);
+    }
+    
     setPropertyDialogOpen(false);
     setCurrentEntity(null);
   };
 
-  const renderEntity = (entity: Entity, level: number = 0) => {
+  const renderEntityTreeItem = (entity: Entity, level: number = 0) => {
     const childEntities = getChildEntities(entity.id);
     const hasChildren = childEntities.length > 0;
     const isExpanded = expandedEntities.has(entity.id);
+    const isSelected = selectedEntity?.id === entity.id;
     const colors = entityTypeColors[entity.type] || entityTypeColors.product;
 
     return (
-      <div key={entity.id} className="mb-4">
-        <div className={`glass-card rounded-xl p-4 border ${colors.border} relative overflow-hidden group hover:scale-[1.01] transition-transform duration-300`}>
-          <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${colors.gradient}`} />
+      <div key={entity.id} className="mb-1">
+        <div 
+          className={`glass-card rounded-lg p-3 border ${isSelected ? `${colors.border} ring-2 ring-white/20` : 'border-transparent'} relative overflow-hidden group hover:scale-[1.01] transition-all duration-200 cursor-pointer`}
+          onClick={() => setSelectedEntity(entity)}
+        >
+          {isSelected && <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${colors.gradient}`} />}
           
-          <div className="flex items-center justify-between" style={{ paddingLeft: `${level * 24}px` }}>
-            <div className="flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center flex-shrink-0`}>
-                {hasChildren ? <Layers className="w-5 h-5 text-white" /> : <Database className="w-5 h-5 text-white" />}
+          <div className="flex items-center gap-3" style={{ paddingLeft: `${level * 16}px` }}>
+            <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${colors.gradient} flex items-center justify-center flex-shrink-0`}>
+              {hasChildren ? <Layers className="w-4 h-4 text-white" /> : <Database className="w-4 h-4 text-white" />}
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-medium text-white truncate">{entity.name}</h4>
+                <span className={`px-2 py-0.5 rounded-full text-xs ${colors.bg} ${colors.text} flex-shrink-0`}>
+                  {getEntityTypeLabel(entity.type)}
+                </span>
               </div>
-              
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                  <h3 className="text-lg font-semibold text-white">{entity.name}</h3>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${colors.bg} ${colors.text}`}>
-                    {getEntityTypeLabel(entity.type)}
-                  </span>
-                  {entity.parentId && (
-                    <span className="px-2 py-0.5 rounded-full text-xs bg-slate-500/20 text-slate-400">
-                      子实体
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-slate-400">
-                  {entity.properties.length} 个属性 {hasChildren && `· ${childEntities.length} 个子实体`}
-                </p>
-              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {entity.properties.length} 个属性
+              </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              {hasChildren && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-10 w-10 text-slate-400 hover:text-white hover:bg-white/10"
-                  onClick={() => toggleExpand(entity.id)}
-                >
-                  {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                </Button>
-              )}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-10 w-10 text-slate-400 hover:text-green-400 hover:bg-green-500/10"
-                onClick={() => handleAddEntity(entity.id)}
-                title="添加子实体"
+            {hasChildren && (
+              <button 
+                className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleExpand(entity.id);
+                }}
               >
-                <Plus className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-10 w-10 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10"
-                onClick={() => handleAddProperty(entity)}
-                title="添加属性"
-              >
-                <Layers className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-10 w-10 text-slate-400 hover:text-white hover:bg-white/10"
-                onClick={() => handleEditEntity(entity)}
-              >
-                <Edit className="h-5 w-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-10 w-10 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
-                onClick={() => handleDeleteEntity(entity.id)}
-              >
-                <Trash2 className="h-5 w-5" />
-              </Button>
-            </div>
+                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+            )}
           </div>
         </div>
 
-        {isExpanded && (
-          <div className="mt-4 ml-8">
-            {entity.properties.length > 0 && (
-              <div className="glass-card rounded-xl p-6 mb-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-blue-400" />
-                    属性列表
-                  </h4>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-                    onClick={() => handleAddProperty(entity)}
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    添加属性
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {entity.properties.map((prop) => (
-                    <div key={prop.id} className="bg-white/5 rounded-lg p-4 border border-white/10 hover:border-white/20 transition-colors">
-                      <div className="flex items-start justify-between mb-2">
-                        <code className="text-sm font-mono text-blue-400">{prop.name}</code>
-                        <span className={`px-2 py-0.5 rounded text-xs ${prop.required ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-400'}`}>
-                          {prop.required ? '必填' : '可选'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs text-slate-500">类型:</span>
-                        <span className="text-xs text-slate-300 bg-white/10 px-2 py-0.5 rounded">
-                          {getPropertyTypeLabel(prop.type)}
-                        </span>
-                      </div>
-                      {prop.description && (
-                        <p className="text-xs text-slate-500">{prop.description}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <div className="mb-4">
-              {childEntities.length > 0 && (
-                <div className="flex items-center gap-2 mb-4 ml-2">
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="text-xs text-slate-500 px-2">子实体</span>
-                  <div className="h-px flex-1 bg-white/10" />
-                </div>
-              )}
-              {childEntities.map((child) => renderEntity(child, level + 1))}
+        {isExpanded && hasChildren && (
+          <div className="mt-1">
+            {childEntities.map((child) => renderEntityTreeItem(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderPropertyDetail = (prop: Property) => {
+    return (
+      <div key={prop.id} className="bg-white/5 rounded-xl p-5 border border-white/10 hover:border-white/20 transition-all group">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <code className="text-lg font-mono text-white">{prop.name}</code>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${prop.required ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                {prop.required ? '必填' : '可选'}
+              </span>
             </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500">类型:</span>
+              <span className="text-sm text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">
+                {getPropertyTypeLabel(prop.type)}
+              </span>
+            </div>
+          </div>
+        </div>
+        {prop.description && (
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <p className="text-sm text-slate-400 leading-relaxed">{prop.description}</p>
           </div>
         )}
       </div>
@@ -330,33 +287,202 @@ export function EntityManagement() {
   const rootEntities = filteredEntities.filter((e) => !e.parentId);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold gradient-text mb-2">实体管理</h2>
-          <p className="text-slate-400">管理产品、实例、商品、Listing等核心实体</p>
+    <div className="h-[calc(100vh-120px)] flex gap-6">
+      <div className="w-[400px] flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold gradient-text mb-1">实体管理</h2>
+            <p className="text-sm text-slate-400">选择实体查看详情</p>
+          </div>
+          <Button 
+            size="sm"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0"
+            onClick={() => handleAddEntity()}
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
         </div>
-        <Button 
-          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0"
-          onClick={() => handleAddEntity()}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          新增实体
-        </Button>
+
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Input 
+            placeholder="搜索实体..." 
+            className="glass-card border-0 h-10 pl-10 text-white placeholder-slate-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-1 pr-2">
+          {rootEntities.map((entity) => renderEntityTreeItem(entity))}
+        </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-        <Input 
-          placeholder="搜索实体..." 
-          className="glass-card border-0 h-12 pl-12 text-white placeholder-slate-500"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
+      <div className="flex-1 flex flex-col">
+        {selectedEntity ? (
+          <>
+            <div className="glass-card rounded-2xl p-6 mb-4 border border-white/10 relative overflow-hidden">
+              <div className={`absolute top-0 left-0 w-2 h-full bg-gradient-to-b ${entityTypeColors[selectedEntity.type]?.gradient || 'from-blue-500 to-cyan-500'}`} />
+              
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${entityTypeColors[selectedEntity.type]?.gradient || 'from-blue-500 to-cyan-500'} flex items-center justify-center flex-shrink-0`}>
+                    {getChildEntities(selectedEntity.id).length > 0 ? (
+                      <Layers className="w-7 h-7 text-white" />
+                    ) : (
+                      <Database className="w-7 h-7 text-white" />
+                    )}
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h2 className="text-2xl font-bold text-white">{selectedEntity.name}</h2>
+                      <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${entityTypeColors[selectedEntity.type]?.bg || 'bg-blue-500/10'} ${entityTypeColors[selectedEntity.type]?.text || 'text-blue-400'}`}>
+                        {getEntityTypeLabel(selectedEntity.type)}
+                      </span>
+                      {selectedEntity.parentId && (
+                        <span className="px-3 py-1.5 rounded-full text-sm bg-slate-500/20 text-slate-400">
+                          子实体
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-6 text-sm text-slate-400">
+                      <span>{selectedEntity.properties.length} 个属性</span>
+                      <span>{getChildEntities(selectedEntity.id).length} 个子实体</span>
+                      <span>创建于 {selectedEntity.createdAt.toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
 
-      <div className="space-y-2">
-        {rootEntities.map((entity) => renderEntity(entity))}
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 text-slate-400 hover:text-green-400 hover:bg-green-500/10"
+                    onClick={() => handleAddEntity(selectedEntity.id)}
+                    title="添加子实体"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10"
+                    onClick={() => handleAddProperty(selectedEntity)}
+                    title="添加属性"
+                  >
+                    <Layers className="w-5 h-5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 text-slate-400 hover:text-white hover:bg-white/10"
+                    onClick={() => handleEditEntity(selectedEntity)}
+                  >
+                    <Edit className="w-5 h-5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                    onClick={() => handleDeleteEntity(selectedEntity.id)}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-blue-400" />
+                  属性列表
+                </h3>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                  onClick={() => handleAddProperty(selectedEntity)}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  添加属性
+                </Button>
+              </div>
+
+              {selectedEntity.properties.length > 0 ? (
+                <div className="space-y-4">
+                  {selectedEntity.properties.map((prop) => renderPropertyDetail(prop))}
+                </div>
+              ) : (
+                <div className="glass-card rounded-2xl p-12 border border-white/10 text-center">
+                  <Database className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-slate-400 mb-2">暂无属性</h4>
+                  <p className="text-sm text-slate-500 mb-4">点击上方按钮为该实体添加属性</p>
+                  <Button 
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0"
+                    onClick={() => handleAddProperty(selectedEntity)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    添加第一个属性
+                  </Button>
+                </div>
+              )}
+
+              {getChildEntities(selectedEntity.id).length > 0 && (
+                <div className="mt-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-px flex-1 bg-white/10" />
+                    <span className="text-sm text-slate-500 px-3">子实体</span>
+                    <div className="h-px flex-1 bg-white/10" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {getChildEntities(selectedEntity.id).map((child) => {
+                      const colors = entityTypeColors[child.type] || entityTypeColors.product;
+                      return (
+                        <div 
+                          key={child.id}
+                          className="glass-card rounded-xl p-4 border border-white/10 hover:border-white/20 transition-all cursor-pointer group"
+                          onClick={() => setSelectedEntity(child)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center flex-shrink-0`}>
+                              <Database className="w-5 h-5 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-medium text-white truncate">{child.name}</h4>
+                                <span className={`px-2 py-0.5 rounded-full text-xs ${colors.bg} ${colors.text} flex-shrink-0`}>
+                                  {getEntityTypeLabel(child.type)}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {child.properties.length} 个属性
+                              </p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mx-auto mb-6 border border-white/10">
+                <Database className="w-12 h-12 text-slate-500" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">选择一个实体</h3>
+              <p className="text-slate-500 max-w-md mx-auto">
+                在左侧列表中点击任意实体，查看其详细信息和属性列表
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -42,7 +42,10 @@ const getEntityTypeLabel = (type: string) => {
 };
 
 export function EntityGraph() {
-  const [selectedEntityId, setSelectedEntityId] = useState<string>(mockEntities[0]?.id || '');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>(() => {
+    const instanceEntity = mockEntities.find(e => e.type === 'instance' && !e.parentId);
+    return instanceEntity?.id || mockEntities[0]?.id || '';
+  });
   const [expandedUpstream, setExpandedUpstream] = useState<Set<string>>(new Set());
   const [expandedDownstream, setExpandedDownstream] = useState<Set<string>>(new Set());
 

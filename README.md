@@ -86,9 +86,37 @@ npm start
 
 ### Docker 部署 | Docker Deployment
 
+#### 使用 Docker Compose（推荐）| Using Docker Compose (Recommended)
+
+```bash
+docker-compose up -d
+```
+
+#### 使用 Docker 构建 | Using Docker Build
+
 ```bash
 docker build -t schema-management .
-docker run -p 3000:3000 schema-management
+docker run -d -p 3000:3000 --name schema-management --restart unless-stopped schema-management
+```
+
+访问 http://localhost:3000
+
+Visit http://localhost:3000
+
+#### 停止容器 | Stop Container
+
+```bash
+docker-compose down
+# 或者 / or
+docker stop schema-management
+```
+
+#### 查看日志 | View Logs
+
+```bash
+docker-compose logs -f
+# 或者 / or
+docker logs -f schema-management
 ```
 
 ## 项目结构 | Project Structure

@@ -195,10 +195,17 @@ export default function Home() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {stats.map((stat, index) => {
                     const Icon = stat.icon;
+                    const getViewForStat = () => {
+                      if (stat.title.includes('实体')) return 'entities';
+                      if (stat.title.includes('映射')) return 'mappings';
+                      if (stat.title.includes('规则')) return 'rules';
+                      return 'entities';
+                    };
                     return (
                       <div 
                         key={index} 
-                        className="glass-card rounded-2xl p-6 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300"
+                        onClick={() => setView(getViewForStat())}
+                        className="glass-card rounded-2xl p-6 relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
                       >
                         <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${stat.color} opacity-20 blur-2xl group-hover:opacity-30 transition-opacity`} />
                         <div className="relative z-10">
@@ -226,6 +233,7 @@ export default function Home() {
                         return (
                           <div 
                             key={index} 
+                            onClick={() => setView('entities')}
                             className={`p-4 rounded-xl ${feature.bg} border ${feature.border} hover:scale-[1.02] transition-transform duration-300 cursor-pointer`}
                           >
                             <Icon className={`w-8 h-8 ${feature.color} mb-3`} />
@@ -244,15 +252,19 @@ export default function Home() {
                     </h3>
                     <div className="space-y-4">
                       {[
-                        { icon: Boxes, title: '实体管理', desc: '定义和维护实体结构' },
-                        { icon: List, title: '属性管理', desc: '管理每个实体的属性' },
-                        { icon: LinkIcon, title: '属性映射', desc: '实体间属性的映射关系' },
-                        { icon: Settings, title: '规则管理', desc: '各平台的字段规则' },
-                        { icon: GitBranch, title: '关系图谱', desc: '查看实体上下游关系' },
+                        { icon: Boxes, title: '实体管理', desc: '定义和维护实体结构', view: 'entities' as ViewType },
+                        { icon: List, title: '属性管理', desc: '管理每个实体的属性', view: 'entities' as ViewType },
+                        { icon: LinkIcon, title: '属性映射', desc: '实体间属性的映射关系', view: 'mappings' as ViewType },
+                        { icon: Settings, title: '规则管理', desc: '各平台的字段规则', view: 'rules' as ViewType },
+                        { icon: GitBranch, title: '关系图谱', desc: '查看实体上下游关系', view: 'graph' as ViewType },
                       ].map((item, index) => {
                         const Icon = item.icon;
                         return (
-                          <div key={index} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors">
+                          <div 
+                            key={index} 
+                            onClick={() => setView(item.view)}
+                            className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                          >
                             <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
                               <Icon className="w-5 h-5 text-slate-400" />
                             </div>

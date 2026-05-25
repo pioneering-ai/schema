@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { mockEntities, mockPropertyMappings } from '@/lib/mock-data';
-import type { Entity, PropertyMapping } from '@/types';
+import type { Entity, Property, PropertyMapping } from '@/types';
 
 interface GraphNode {
   id: string;
